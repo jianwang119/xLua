@@ -23,10 +23,10 @@ namespace XLua
     public abstract class LuaBase : IDisposable
     {
         protected bool disposed;
-        protected int luaReference;
-        protected LuaEnv luaEnv;
+        protected readonly int luaReference;
+        protected readonly LuaEnv luaEnv;
 
-#if UNITY_EDITOR
+#if UNITY_EDITOR || XLUA_GENERAL
         protected int _errorFuncRef { get { return luaEnv.errorFuncRef; } }
         protected RealStatePtr _L { get { return luaEnv.L; } }
         protected ObjectTranslator _translator { get { return luaEnv.translator; } }
@@ -55,7 +55,7 @@ namespace XLua
             {
                 if (luaReference != 0)
                 {
-#if THREAD_SAFT || HOTFIX_ENABLE
+#if THREAD_SAFE || HOTFIX_ENABLE
                     lock (luaEnv.luaEnvLock)
                     {
 #endif
@@ -68,32 +68,33 @@ namespace XLua
                         {
                             luaEnv.equeueGCAction(new LuaEnv.GCAction { Reference = luaReference, IsDelegate = is_delegate });
                         }
-#if THREAD_SAFT || HOTFIX_ENABLE
+#if THREAD_SAFE || HOTFIX_ENABLE
                     }
 #endif
                 }
-                luaEnv = null;
                 disposed = true;
             }
         }
 
         public override bool Equals(object o)
         {
-            if (this.GetType() == o.GetType())
+            if (o != null && this.GetType() == o.GetType())
             {
-#if THREAD_SAFT || HOTFIX_ENABLE
+#if THREAD_SAFE || HOTFIX_ENABLE
                 lock (luaEnv.luaEnvLock)
                 {
 #endif
                     LuaBase rhs = (LuaBase)o;
                     var L = luaEnv.L;
+                    if (L != rhs.luaEnv.L)
+                        return false;
                     int top = LuaAPI.lua_gettop(L);
                     LuaAPI.lua_getref(L, rhs.luaReference);
                     LuaAPI.lua_getref(L, luaReference);
                     int equal = LuaAPI.lua_rawequal(L, -1, -2);
                     LuaAPI.lua_settop(L, top);
                     return (equal != 0);
-#if THREAD_SAFT || HOTFIX_ENABLE
+#if THREAD_SAFE || HOTFIX_ENABLE
                 }
 #endif
             }
@@ -102,7 +103,10 @@ namespace XLua
 
         public override int GetHashCode()
         {
-            return luaReference;
+            LuaAPI.lua_getref(luaEnv.L, luaReference);
+            var pointer = LuaAPI.lua_topointer(luaEnv.L, -1);
+            LuaAPI.lua_pop(luaEnv.L, 1);
+            return pointer.ToInt32();
         }
 
         internal virtual void push(RealStatePtr L)

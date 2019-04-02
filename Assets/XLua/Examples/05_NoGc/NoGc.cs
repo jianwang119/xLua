@@ -12,13 +12,15 @@ using XLua;
 
 namespace XLuaTest
 {
-    [LuaCallCSharp(GenFlag.GCOptimize)]
+    [GCOptimize]
+    [LuaCallCSharp]
     public struct Pedding
     {
         public byte c;
     }
 
-    [LuaCallCSharp(GenFlag.GCOptimize)]
+    [GCOptimize]
+    [LuaCallCSharp]
     public struct MyStruct
     {
         public MyStruct(int p1, int p2)
@@ -75,18 +77,21 @@ namespace XLuaTest
         CustomValueTypeParam f3;
         EnumParam f4;
         DecimalParam f5;
+
         ArrayAccess farr;
-
         Action flua;
-
         IExchanger ie;
-
         LuaFunction add;
 
+        [NonSerialized]
         public double[] a1 = new double[] { 1, 2 };
+        [NonSerialized]
         public Vector3[] a2 = new Vector3[] { new Vector3(1, 2, 3), new Vector3(4, 5, 6) };
+        [NonSerialized]
         public MyStruct[] a3 = new MyStruct[] { new MyStruct(1, 2), new MyStruct(3, 4) };
+        [NonSerialized]
         public MyEnum[] a4 = new MyEnum[] { MyEnum.E1, MyEnum.E2 };
+        [NonSerialized]
         public decimal[] a5 = new decimal[] { 1.00001M, 2.00002M };
 
         public float FloatParamMethod(float p)
@@ -162,6 +167,7 @@ namespace XLuaTest
             luaenv.Global.Get("id", out f3);
             luaenv.Global.Get("id", out f4);
             luaenv.Global.Get("id", out f5);
+
             luaenv.Global.Get("array_exchange", out farr);
             luaenv.Global.Get("lua_access_csharp", out flua);
             luaenv.Global.Get("exchanger", out ie);
@@ -182,17 +188,15 @@ namespace XLuaTest
         {
             // c# call lua function with value type but no gc (using delegate)
             f1(1); // primitive type
-            Vector3 v3 = new Vector3(1, 2, 3); // vector3
-            f2(v3);
-            MyStruct mystruct = new MyStruct(5, 6); // custom complex value type
-            f3(mystruct);
-            f4(MyEnum.E1); //enum 
-            decimal d = -32132143143100109.00010001010M;
-            decimal dr = f5(d);
-            System.Diagnostics.Debug.Assert(d == dr);
+            f2(new Vector3(1, 2, 3)); // vector3
+            MyStruct mystruct1 = new MyStruct(5, 6);
+            f3(mystruct1); // custom complex value type
+            f4(MyEnum.E1); //enum
+            decimal dec1 = -32132143143100109.00010001010M;
+            f5(dec1); //decimal
 
             // using LuaFunction.Func<T1, T2, TResult>
-            System.Diagnostics.Debug.Assert(add.Func<int, int, int>(34, 56) == (34 + 56)); // LuaFunction.Func<T1, T2, TResult>
+            add.Func<int, int, int>(34, 56); // LuaFunction.Func<T1, T2, TResult>
 
             // lua access c# value type array no gc
             farr(a1); //primitive value type array
@@ -211,31 +215,35 @@ namespace XLuaTest
             luaenv.Global.Set("g_int", 456);
             int i;
             luaenv.Global.Get("g_int", out i);
-            System.Diagnostics.Debug.Assert(i == 456);
 
-            luaenv.Global.Set(123.0001, mystruct);
+            luaenv.Global.Set(123.0001, mystruct1);
             MyStruct mystruct2;
             luaenv.Global.Get(123.0001, out mystruct2);
-            System.Diagnostics.Debug.Assert(mystruct2.b == mystruct.b);
 
-            decimal dr2 = 0.0000001M;
-            luaenv.Global.Set((byte)12, d);
-            luaenv.Global.Get((byte)12, out dr2);
-            System.Diagnostics.Debug.Assert(d == dr2);
+            decimal dec2 = 0.0000001M;
+            luaenv.Global.Set((byte)12, dec1);
+            luaenv.Global.Get((byte)12, out dec2);
 
             int gdata = luaenv.Global.Get<int>("GDATA");
             luaenv.Global.SetInPath("GDATA", gdata + 1);
-            System.Diagnostics.Debug.Assert(luaenv.Global.Get<int>("GDATA") == gdata + 1);
 
             int abc = luaenv.Global.GetInPath<int>("A.B.C");
             luaenv.Global.SetInPath("A.B.C", abc + 1);
-            System.Diagnostics.Debug.Assert(luaenv.Global.GetInPath<int>("A.B.C") == abc + 1);
 
             luaenv.Tick();
         }
 
         void OnDestroy()
         {
+            f1 =  null;
+            f2 = null;
+            f3 = null;
+            f4 = null;
+            f5 = null;
+            farr = null;
+            flua = null;
+            ie = null;
+            add = null;
             luaenv.Dispose();
         }
     }
